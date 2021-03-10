@@ -32,9 +32,9 @@ def simpleTest(torch = False):
     for i in range(len60):
         startTime = time.perf_counter()
         rv = gpr.optimizeRV(allSuborders[20][i],allSuborders1[20][i],cuda=True, loglik_nearMax=True)
-        rvmean = rv[1][round(len(rv[1])/2)]     
-        rvstd = np.sqrt(np.sum((np.array(rv[1]) - rvmean)**2)/len(rv[1]))
-        print((time.perf_counter() - startTime),rv[0],rvstd)
+        loglikmean = rv[1][round(len(rv[1])/2)]     
+        loglikstd = np.sqrt(np.sum((np.array(rv[1]) - loglikmean)**2)/len(rv[1]))
+        print((time.perf_counter() - startTime),rv[0],loglikstd)
 
 def generateSpec(Vmag = 9.,exposureTime = 900.):
     os.chdir('..')
@@ -74,13 +74,13 @@ def loadSpectrum():
     RVlist = []
     spectrumName = os.listdir(pathbase)
     for name in spectrumName:
-        marvel = Marvel.Spectrum(path = pathbase + name,nPointSuborder=800)
+        marvel = Marvel.Spectrum(path = pathbase + name,nPointSuborder=450)
         allSuborders = marvel.spectrumToSuborder()
         spectrumList.append(allSuborders)
         RVlist.append(name.split(".")[0].split("_")[-1])
     return spectrumList,RVlist
 
-def computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = False):
+def computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = False,loglik_nearMax = False):
     sumDuration = 0
     sumRV = 0
     count = 0
@@ -94,15 +94,21 @@ def computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = Fals
                 gpr = Marvel.GPR()
             else:
                 gpr = Marvel_torch.GPR()
-            rv = gpr.optimizeRV(subspectrum1,subspectrum2, cuda = cuda, loglik_nearMax = False)
+            rv = gpr.optimizeRV(subspectrum1,subspectrum2, cuda = cuda, loglik_nearMax = loglik_nearMax)
             duration = time.perf_counter() - startTime
             sumDuration += duration
-            rvOut = rv.x.item()
+            if loglik_nearMax == False:
+                rvOut = rv.x.item()
+                std = 1
+            else:
+                rvOut = rv[0]
+                loglikmean = rv[1][round(len(rv[1])/2)]
+                std = np.sqrt(np.sum((np.array(rv[1]) - loglikmean)**2)/len(rv[1]))
             sumRV += rvOut
             aveNow = np.around(sumRV/count,decimals=2)
-            print(duration,rv.x.item(),relativeRV,aveNow)           
+            print(duration,rvOut,relativeRV,aveNow)           
             outFile = open(filename, "a")
-            outFile.write(str(duration) + "," + str(rvOut) + "," + str(aveNow) + "," + str(i) + "," + str(j) + "\n")
+            outFile.write(str(duration) + "," + str(rvOut) + "," + str(std) +"," + str(aveNow) + "," + str(i) + "," + str(j) + "\n")
             outFile.close()
             
 if __name__ == "__main__":
@@ -125,7 +131,7 @@ if __name__ == "__main__":
             relativeRV = int(RVlist[i]) -  int(RVlist[j])
             filename = pathbase + "\\output" + str(i) + "_" + str(j) + "_" + str(relativeRV) + ".csv"
             outFile = open(filename, "w")
-            outFile.write("RunningTime,RV,AveraeRVNow,Order,SubOrder\n")
+            outFile.write("RunningTime,RV,var,AveraeRVNow,Order,SubOrder\n")
             outFile.close()
-            computeRV(spectrum1,spectrum2,filename,relativeRV,torch = True, cuda = True)
+            computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = False,loglik_nearMax = True)
 
