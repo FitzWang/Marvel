@@ -1,6 +1,7 @@
 # %% Imports
 
-import os
+import os 
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import numpy as np
 import pandas as pd
 import scipy as sp

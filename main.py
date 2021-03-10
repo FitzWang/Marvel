@@ -7,6 +7,7 @@ Created on Sun Feb  7 19:58:44 2021
 
 import Marvel
 import Marvel_torch
+import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
 from utilities import *
@@ -29,11 +30,11 @@ def simpleTest(torch = False):
         gpr = Marvel_torch.GPR()
     len60 = len(allSuborders[20])
     for i in range(len60):
-        startTime = time.clock()
-        rv = gpr.optimizeRV(allSuborders[20][i],allSuborders1[20][i],cuda=True)
+        startTime = time.perf_counter()
+        rv = gpr.optimizeRV(allSuborders[20][i],allSuborders1[20][i],cuda=True, loglik_nearMax=True)
         rvmean = rv[1][round(len(rv[1])/2)]     
         rvstd = np.sqrt(np.sum((np.array(rv[1]) - rvmean)**2)/len(rv[1]))
-        print((time.clock() - startTime),rv[0],rvstd)
+        print((time.perf_counter() - startTime),rv[0],rvstd)
 
 def generateSpec(Vmag = 9.,exposureTime = 900.):
     os.chdir('..')
@@ -73,13 +74,13 @@ def loadSpectrum():
     RVlist = []
     spectrumName = os.listdir(pathbase)
     for name in spectrumName:
-        marvel = Marvel.Spectrum(path = pathbase + name)
+        marvel = Marvel.Spectrum(path = pathbase + name,nPointSuborder=800)
         allSuborders = marvel.spectrumToSuborder()
         spectrumList.append(allSuborders)
         RVlist.append(name.split(".")[0].split("_")[-1])
     return spectrumList,RVlist
 
-def computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False):
+def computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = False):
     sumDuration = 0
     sumRV = 0
     count = 0
@@ -93,7 +94,7 @@ def computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False):
                 gpr = Marvel.GPR()
             else:
                 gpr = Marvel_torch.GPR()
-            rv = gpr.optimizeRV(subspectrum1,subspectrum2, loglik_nearMax = False)
+            rv = gpr.optimizeRV(subspectrum1,subspectrum2, cuda = cuda, loglik_nearMax = False)
             duration = time.perf_counter() - startTime
             sumDuration += duration
             rvOut = rv.x.item()
@@ -104,28 +105,27 @@ def computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False):
             outFile.write(str(duration) + "," + str(rvOut) + "," + str(aveNow) + "," + str(i) + "," + str(j) + "\n")
             outFile.close()
             
-# if __name__ == "__main__":
-#     generateSpec()
-#     spectrumList,RVlist = loadSpectrum()
-#     lenSinSpectrum = len(spectrumList)
-#     # creat new result folder
-#     datetimeNow = str(datetime.datetime.now()).split(" ")[0]
-#     os.chdir('..')
-#     pathbase = os.getcwd() + '\\results\\' + datetimeNow 
-#     if not os.path.exists(pathbase):
-#         os.chdir('results')
-#         os.makedirs(datetimeNow)
-#         os.chdir('..')
-#         os.chdir('python')
-#     for i in range(lenSinSpectrum):
-#         for j in range(i+1,lenSinSpectrum):
-#             spectrum1 = spectrumList[i]
-#             spectrum2 = spectrumList[j]
-#             relativeRV = int(RVlist[i]) -  int(RVlist[j])
-#             filename = pathbase + "\\output" + str(i) + "_" + str(j) + "_" + str(relativeRV) + ".csv"
-#             outFile = open(filename, "w")
-#             outFile.write("RunningTime,RV,AveraeRVNow,Order,SubOrder\n")
-#             outFile.close()
-#             computeRV(spectrum1,spectrum2,filename,relativeRV)
+if __name__ == "__main__":
+    generateSpec()
+    spectrumList,RVlist = loadSpectrum()
+    lenSinSpectrum = len(spectrumList)
+    # creat new result folder
+    datetimeNow = str(datetime.datetime.now()).split(" ")[0]
+    os.chdir('..')
+    pathbase = os.getcwd() + '\\results\\' + datetimeNow 
+    if not os.path.exists(pathbase):
+        os.chdir('results')
+        os.makedirs(datetimeNow)
+        os.chdir('..')
+        os.chdir('Python')
+    for i in range(lenSinSpectrum):
+        for j in range(i+1,lenSinSpectrum):
+            spectrum1 = spectrumList[i]
+            spectrum2 = spectrumList[j]
+            relativeRV = int(RVlist[i]) -  int(RVlist[j])
+            filename = pathbase + "\\output" + str(i) + "_" + str(j) + "_" + str(relativeRV) + ".csv"
+            outFile = open(filename, "w")
+            outFile.write("RunningTime,RV,AveraeRVNow,Order,SubOrder\n")
+            outFile.close()
+            computeRV(spectrum1,spectrum2,filename,relativeRV,torch = True, cuda = True)
 
-simpleTest(torch =True)

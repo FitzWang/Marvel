@@ -235,7 +235,7 @@ class GPR:
         else:
             return negLogLik   
     
-    def optimizeRV(self, spectrum1, spectrum2, loglik_nearMax = False):
+    def optimizeRV(self, spectrum1, spectrum2, cuda=False, loglik_nearMax = False):
         len1 = len(spectrum1)
         len2 = len(spectrum2)
         if len1 != len2:
