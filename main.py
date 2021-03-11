@@ -70,8 +70,9 @@ def loadSpectrum():
     spectrumList = []
     RVlist = []
     spectrumName = os.listdir(pathbase)
+    spectrumName.sort()
     for name in spectrumName:
-        marvel = Marvel.Spectrum(path = (pathbase / name),nPointSuborder=450)
+        marvel = Marvel.Spectrum(path = (pathbase / name),nPointSuborder=800)
         allSuborders = marvel.spectrumToSuborder()
         spectrumList.append(allSuborders)
         RVlist.append(name.split(".")[0].split("_")[-1])
@@ -103,7 +104,7 @@ def computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = Fals
                 std = np.sqrt(np.sum((np.array(rv[1]) - loglikmean)**2)/len(rv[1]))
             sumRV += rvOut
             aveNow = np.around(sumRV/count,decimals=2)
-            print(duration,rvOut,relativeRV,aveNow)           
+            # print(duration,rvOut,relativeRV,aveNow)           
             outFile = open(filename, "a")
             outFile.write(str(duration) + "," + str(rvOut) + "," + str(std) +"," + str(aveNow) + "," + str(i) + "," + str(j) + "\n")
             outFile.close()
