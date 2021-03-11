@@ -310,7 +310,7 @@ class GPR:
     def logLik_Chol(self,wavel1, wavel2, Y12, var1, var2, v, evalGradiant = False):
         # startTime = time.clock() 
         length = len(wavel1)
-        wavel1 = wavel1/np.sqrt((1 + v/self.c)/(1 - v/self.c))
+        wavel1 = wavel2/np.sqrt((1 + v/self.c)/(1 - v/self.c))
         X12 = np.concatenate((wavel1,wavel2))
         
         # varMatrix = np.diag(np.concatenate((np.ones(length)*var1,np.ones(length)*var2)))

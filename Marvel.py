@@ -195,17 +195,54 @@ class GPR:
         matrixLower = np.concatenate((matrix3, matrix4),axis=1)
         return np.concatenate((matrixUpper, matrixLower))   
     
+    # compute only K12 matrix for joint 2 spectra
+    def Kmatrix(self,spectrum1, spectrum2, v,imshow = True):
+        len1 = len(spectrum1)
+        len2 = len(spectrum2)
+        if len1 != len2:
+            assert abs(len1-len2)<5
+            print("WARNING: Unequal suborder length, removing the difference")
+            if len1 > len2:
+                spectrum1 = spectrum1.iloc[:len2]
+            else:
+                spectrum2 = spectrum2.iloc[:len1]
+        m1 = self.regression(spectrum1)
+        m2 = self.regression(spectrum2)
+        X1 = m1.X
+        Xnew1 = np.arange(X1[0],X1[-1], step=self.GPwavelInterval)
+        wavel1 = Xnew1.reshape(len(Xnew1),-1)
+        mpred1 = m1.predict(wavel1)
+        mVar1 = mpred1[1].ravel()
+        
+        X2 = m2.X
+        Xnew2 = np.arange(X2[0],X2[-1], step=self.GPwavelInterval)
+        wavel2 = Xnew2.reshape(len(Xnew2),-1)
+        mpred2 = m2.predict(wavel2)
+        mVar2 = mpred2[1].ravel()
+        
+        Xnew1 = Xnew2/np.sqrt((1 + v/self.c)/(1 - v/self.c))
+        X12 = np.concatenate((Xnew1,Xnew2))
+        
+        # varMatrix = np.diag(np.concatenate((np.ones(length)*var1,np.ones(length)*var2)))
+        varMatrix = np.diag(np.concatenate((mVar1,mVar2)))
+        K12 = self.kernel_Mat52(X12,X12)
+        K12 += varMatrix
+        if imshow == True:
+            fig, ax = plt.subplots(figsize=(10, 10))
+            ax.imshow(K12, cmap = 'gray')
+        return K12
+    
     # Log likelihood with Cholosky decompostion    
     def logLik_Chol(self,wavel1, wavel2, Y12, var1, var2, v, evalGradiant = False):
         # startTime = time.clock() 
         length = len(wavel1)
-        wavel1 = wavel1/np.sqrt((1 + v/self.c)/(1 - v/self.c))
+        wavel1 = wavel2/np.sqrt((1 + v/self.c)/(1 - v/self.c))
         X12 = np.concatenate((wavel1,wavel2))
         
         # varMatrix = np.diag(np.concatenate((np.ones(length)*var1,np.ones(length)*var2)))
         varMatrix = np.diag(np.concatenate((var1,var2)))
         K12 = self.kernel_Mat52(X12,X12)
-        K12 += varMatrix
+        K12 += varMatrix        
         # scipy package solution
         Y12  = Y12[:, np.newaxis]
         L = scipy.linalg.cholesky(K12 + (1e-10*np.identity(2*length)),lower=True)
