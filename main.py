@@ -15,6 +15,7 @@ import time
 import sys
 import os
 import datetime
+from pathlib import Path
 
 
 def simpleTest(torch = False):   
@@ -37,9 +38,7 @@ def simpleTest(torch = False):
         print((time.perf_counter() - startTime),rv[0],loglikstd)
 
 def generateSpec(Vmag = 9.,exposureTime = 900.):
-    os.chdir('..')
-    pathbase = os.getcwd() + '\\spectrum'
-    os.chdir('Python')
+    pathbase = Path(os.getcwd()) / '..' /'spectrum'
     # creat spectrum when folder is empty
     if len(os.listdir(pathbase)) == 0:
         jitter = 150*np.sin(np.pi*np.arange(0,1.5,0.15))
@@ -63,18 +62,16 @@ def generateSpec(Vmag = 9.,exposureTime = 900.):
             spectrum = loadSpectrum2(Teff, logg, vmicro, FeH, vsini, R, effWavelSpectrograph, samplingResolution, velocityShift)
             spectrum = electronFlux(spectrum, telescopeArea, throughputInterpolator, lambdaMin, lambdaMax, exposureTime, Vmag, 
                                     includePoissonNoise=True, normalizeSpectrum=True)
-            spectrum.to_csv(pathbase + "\\Spectrum" + str(i) + '_' + str(velocityShift) +".csv")
+            spectrum.to_csv(pathbase / ('Spectrum' + str(i) + '_' + str(velocityShift) +".csv"))
 
 def loadSpectrum():
     # get spectrum storage folder
-    os.chdir('..')
-    pathbase = os.getcwd() + '\\spectrum\\'
-    os.chdir('Python')
+    pathbase = Path(os.getcwd()) / '..' /'spectrum'
     spectrumList = []
     RVlist = []
     spectrumName = os.listdir(pathbase)
     for name in spectrumName:
-        marvel = Marvel.Spectrum(path = pathbase + name,nPointSuborder=450)
+        marvel = Marvel.Spectrum(path = (pathbase / name),nPointSuborder=450)
         allSuborders = marvel.spectrumToSuborder()
         spectrumList.append(allSuborders)
         RVlist.append(name.split(".")[0].split("_")[-1])
@@ -117,21 +114,17 @@ if __name__ == "__main__":
     lenSinSpectrum = len(spectrumList)
     # creat new result folder
     datetimeNow = str(datetime.datetime.now()).split(" ")[0]
-    os.chdir('..')
-    pathbase = os.getcwd() + '\\results\\' + datetimeNow 
+    pathbase = Path(os.getcwd()) / '..' /'results' / datetimeNow
     if not os.path.exists(pathbase):
-        os.chdir('results')
-        os.makedirs(datetimeNow)
-        os.chdir('..')
-        os.chdir('Python')
+        os.makedirs(pathbase)
     for i in range(lenSinSpectrum):
         for j in range(i+1,lenSinSpectrum):
             spectrum1 = spectrumList[i]
             spectrum2 = spectrumList[j]
             relativeRV = int(RVlist[i]) -  int(RVlist[j])
-            filename = pathbase + "\\output" + str(i) + "_" + str(j) + "_" + str(relativeRV) + ".csv"
+            filename = pathbase / ("output" + str(i) + "_" + str(j) + "_" + str(relativeRV) + ".csv")
             outFile = open(filename, "w")
-            outFile.write("RunningTime,RV,var,AveraeRVNow,Order,SubOrder\n")
+            outFile.write("RunningTime,RV,std,AveraeRVNow,Order,SubOrder\n")
             outFile.close()
             computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = False,loglik_nearMax = True)
 
