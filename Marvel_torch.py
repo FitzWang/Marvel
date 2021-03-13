@@ -83,7 +83,7 @@ class Spectrum:
         return suborders    
         
     
-    def subSpectrum(self, lowerWavl: float, upperWavl:float):
+    def subSpectrum(self, lowerWavl, upperWavl):
         '''
         To select spectrum with specific range of wavelength
         
@@ -272,7 +272,7 @@ class GPR:
     #     ax0.fill_between(Xnew.ravel(), mCI[0].ravel(), mCI[1].ravel() , alpha=0.3)
     #     plt.show()
                 
-    def kernel_Mat52(self, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
+    def kernel_Mat52(self, x1, x2):
         tau = np.sqrt(5*(np.subtract.outer(x1,x2)**2))
         kout = self.h**2*(1 + tau/self.rho + tau**2/(3*self.rho**2))*np.exp(-tau/self.rho)
         return kout
