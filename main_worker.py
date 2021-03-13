@@ -110,22 +110,50 @@ def computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = Fals
             outFile.close()
             
 if __name__ == "__main__":
+    inputPara = sys.argv[1:]
+    lenPara = len(inputPara)   
     generateSpec()
-    spectrumList,RVlist = loadSpectrum(nPointSuborder=800)
-    lenSinSpectrum = len(spectrumList)
+    # spectrumList,RVlist = loadSpectrum()
+    spectrumPath = Path(os.getcwd()) / '..' /'spectrum'
+    spectrumName =  os.listdir(spectrumPath)
+    spectrumName.sort()
+    lenSinSpectrum = len(spectrumName)
+    RVlist = [name.split(".")[0].split("_")[-1] for name in spectrumName]
     # creat new result folder
     datetimeNow = str(datetime.datetime.now()).split(" ")[0].replace('-','_')
     pathbase = Path(os.getcwd()) / '..' /'results' / datetimeNow
+    
+    nPointSuborder=800
     if not os.path.exists(pathbase):
         os.makedirs(pathbase)
-    for i in range(lenSinSpectrum):
-        for j in range(i+1,lenSinSpectrum):
-            spectrum1 = spectrumList[i]
-            spectrum2 = spectrumList[j]
-            relativeRV = int(RVlist[i]) -  int(RVlist[j])
-            filename = pathbase / ("output" + str(i) + "_" + str(j) + "_" + str(relativeRV) + ".csv")
+    if lenPara == 1:
+        inputPara = int(inputPara[0])
+        assert inputPara < lenSinSpectrum
+        marvel = Marvel.Spectrum(path = (spectrumPath / spectrumName[inputPara]), nPointSuborder=nPointSuborder)
+        spectrum1 = marvel.spectrumToSuborder()
+        for i in range(lenSinSpectrum):
+            marvel = Marvel.Spectrum(path = (spectrumPath / spectrumName[i]), nPointSuborder=nPointSuborder)
+            spectrum2 = marvel.spectrumToSuborder()
+            relativeRV = int(RVlist[inputPara]) -  int(RVlist[i])
+            filename = pathbase / ("output" + str(inputPara) + "_" + str(i) + "_" + str(relativeRV) + ".csv")
             outFile = open(filename, "w")
             outFile.write("RunningTime,RV,std,AveraeRVNow,Order,SubOrder\n")
             outFile.close()
             computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = False,loglik_nearMax = True)
-
+    elif lenPara == 2:
+        inputPara1 = int(inputPara[0])
+        inputPara2 = int(inputPara[1])
+        assert inputPara1 < lenSinSpectrum
+        assert inputPara2 < lenSinSpectrum
+        marvel = Marvel.Spectrum(path = (spectrumPath / spectrumName[inputPara1]), nPointSuborder=nPointSuborder)
+        spectrum1 = marvel.spectrumToSuborder()
+        marvel = Marvel.Spectrum(path = (spectrumPath / spectrumName[inputPara2]), nPointSuborder=nPointSuborder)
+        spectrum2 = marvel.spectrumToSuborder()
+        relativeRV = int(RVlist[inputPara1]) -  int(RVlist[inputPara2])
+        filename = pathbase / ("output" + str(inputPara1) + "_" + str(inputPara2) + "_" + str(relativeRV) + ".csv")
+        outFile = open(filename, "w")
+        outFile.write("RunningTime,RV,std,AveraeRVNow,Order,SubOrder\n")
+        outFile.close()
+        computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = False,loglik_nearMax = True)
+    else:
+        pass
