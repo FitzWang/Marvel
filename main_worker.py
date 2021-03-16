@@ -125,7 +125,9 @@ if __name__ == "__main__":
     
     nPointSuborder=800
     if not os.path.exists(pathbase):
-        os.makedirs(pathbase)
+        try: os.makedirs(pathbase)
+        except FileExistsError:
+            pass        
     if lenPara == 1:
         inputPara = int(inputPara[0])
         assert inputPara < lenSinSpectrum
@@ -154,6 +156,6 @@ if __name__ == "__main__":
         outFile = open(filename, "w")
         outFile.write("RunningTime,RV,std,AveraeRVNow,Order,SubOrder\n")
         outFile.close()
-        computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = False,loglik_nearMax = True)
+        computeRV(spectrum1,spectrum2,filename,relativeRV,torch = False, cuda = False,loglik_nearMax = False)
     else:
         pass
