@@ -371,7 +371,7 @@ class GPR:
         objFun = lambda v:self.logLik_Chol(Xnew1, Xnew2, Y12, mVar1, mVar2, v)
         # step_count = opt.minimize(objFun, [v]).numpy()
         # result = v.numpy()
-        result = minimize_scalar(objFun,method='brent')
+        result = minimize_scalar(objFun,method='brent',tol=1e-3)
         # result = scipy.optimize.minimize(objFun, x0=-50, method="L-BFGS-B", jac=True, options={'disp': True})
         # result = minimize(objFun, 0, method="L-BFGS-B", options={'disp': True})
         # result = optimize.dual_annealing(objFun,bounds = list(zip([-10000], [10000])))
