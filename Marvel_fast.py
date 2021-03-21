@@ -279,7 +279,7 @@ class GPR():
         else:
             return negLogLik
         
-    def optimizeRV(self, GPFitted1, GPFitted2, loglik_nearMax = False):
+    def optimizeRV(self, GPFitted1, GPFitted2, loglik_nearMax = False, deltaV = 1):
         len1 = len(GPFitted1)
         len2 = len(GPFitted2)
         if len1 != len2:
@@ -298,14 +298,15 @@ class GPR():
         # result = scipy.optimize.minimize(objFun, x0=-20, method="L-BFGS-B", options={'ftol': 1e-15, 'gtol': 1e-15, 'eps': 1e-15})
         # result = scipy.optimize.minimize(objFun, 500, method="Powell", options={'disp': True,'ftol':1e-5,'xtol': 1e-5})
         # result = optimize.dual_annealing(objFun,bounds = list(zip([-10000], [10000])))
+        
+        ### Following eq.11 in Zechmeister1,2017: error estimation under porabolic approximation
         if loglik_nearMax == True:
             maxmum = result.x.item()
-            rvlist = np.arange(-6,7)*5 + maxmum
-            # rvlist = np.append(rvlist,-55)
-            logliklist = []
-            for i in range(len(rvlist)):
-                logliklist.append(objFun(rvlist[i]))
-            return  maxmum,logliklist
+            neglog_max = result.fun.item()
+            neglog_maxN = objFun(maxmum - deltaV).item()
+            neglog_maxP = objFun(maxmum + deltaV).item()
+            uncertainty = 2*deltaV**2/(neglog_maxN - 2*neglog_max + neglog_maxP)
+            return  maxmum,uncertainty
         else:
-            return result
+            return result.x.item()
         

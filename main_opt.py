@@ -25,7 +25,7 @@ if __name__ == '__main__':
         print("Input should be one integer")
         raise IOError
     ####### define parameters
-    loglik_nearMax = False
+    loglik_nearMax = True
     #######
     
     spec = Marvel_fast.Spectrum()
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     RunningTime = np.empty(noSuborders, dtype=float)
     RVout = np.empty(noSuborders, dtype=float)
     RVMean = np.empty(noSuborders, dtype=float)
-    std = np.empty(noSuborders, dtype=float)
+    var = np.empty(noSuborders, dtype=float)
     Order = np.repeat([i for i in range(len(nSplit))],nSplit)
     # Loop for suborders
     RVsum = 0
@@ -72,23 +72,23 @@ if __name__ == '__main__':
         # fill in data
         RunningTime[j] = duration
         if loglik_nearMax == False:
-            RVsum += result.x.item()
+            RVsum += result
             RVMean[j] = RVsum/(j+1)
-            RVout[j] = result.x.item()
-            std[j] = 1
+            RVout[j] = result
+            var[j] = 1
         else:
-            RVsum += result.x.item()
-            RVout[j] = result[0].x.item()
+            RVsum += result[0]
+            RVout[j] = result[0]
             RVMean[j] = RVsum/(j+1)
-            loglikmean = result[1][round(len(rv[1])/2)]
-            std[j] = np.sqrt(np.sum((np.array(result[1]) - loglikmean)**2)/len(result[1]))
-        # print('RV:{}, time{}'.format(result.x.item(),duration))
-    dfResults = pd.DataFrame({'RunningTime':RunningTime,'RV':RVout,'std':std,'RVmean':RVMean,'Order':Order})
-    resultsName = 'output' + str(int(inputPara1/10)) + '_' + str(int(inputPara2%10)) + '_' + str(int(RV1Value) - int(RV2Value)) + '.csv'
+            var[j] = result[1]
+        # print('RV:{},var:{}, time{}'.format(result[0],result[1],duration))
+    dfResults = pd.DataFrame({'RunningTime':RunningTime,'RV':RVout,'var':var,'RVmean':RVMean,'Order':Order})
+    resultsName = 'output' + str(int(inputPara1/10)) + str(int(inputPara1%10)) + '_' + str(int(inputPara2/10)) +\
+        str(int(inputPara2%10)) + '_' + str(int(RV1Value) - int(RV2Value)) + '.csv'
     dfResults.to_csv(pathresult / resultsName, index = False)
     
     
     ## check if need to delete nSplit file
     lengthSpectra = len(GPFittedList)
     if inputPara1 == (lengthSpectra-2) and inputPara2 == (lengthSpectra-1):
-        os.remove(nSplit.csv)
+        os.remove('nSplit.csv')
