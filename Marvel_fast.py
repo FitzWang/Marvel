@@ -69,7 +69,7 @@ class Spectrum():
             assert len(velocity.shape) == 1, 'Please input one-dim list or array'
             for i in range(len(velocity)):
                 spectrum = self.GenOneSpectrum(velocity[i], Vmag, exposureTime)
-                filename = 'Spectrum' + str(int(i/10)) + str(int(i%10)) + '_' + str(round(velocity[i])) + '.csv'
+                filename = 'Spectrum' + str(int(i/10)) + str(int(i%10)) + '_' + str(int(velocity[i])) + '.csv'
                 spectrum.to_csv(self.pathbase/'..'/'spectrum'/filename,index=False)
                 
         flag = self.CheckSpecExist(disp = False)
@@ -275,9 +275,9 @@ class GPR():
             # constructing the full matrix tmp.dot(K_gradient) since only
             # its diagonal is required
             log_likelihood_gradient = 0.5 * np.einsum("ijl,jik->kl", tmp, K_gradient[:,:,np.newaxis])        
-            return negLogLik, log_likelihood_gradient.sum(-1)
+            return negLogLik.item(), log_likelihood_gradient.sum(-1)
         else:
-            return negLogLik
+            return negLogLik.item()
         
     def optimizeRV(self, GPFitted1, GPFitted2, loglik_nearMax = False, deltaV = 1):
         len1 = len(GPFitted1)
@@ -289,9 +289,10 @@ class GPR():
                 GPFitted1 = GPFitted1.iloc[:len2]
             else:
                 GPFitted2 = GPFitted2.iloc[:len1]
-        Y12 = np.concatenate((GPFitted1['mean'],GPFitted2['mean']))
+        Y12 = np.concatenate((GPFitted1['mean'].to_numpy(),GPFitted2['mean'].to_numpy()))
         # startTime = time.clock()               
-        objFun = lambda v:self.logLik_Chol(GPFitted1['wavel'], GPFitted2['wavel'], Y12, GPFitted1['var'], GPFitted2['var'], v)
+        objFun = lambda v:self.logLik_Chol(GPFitted1['wavel'].to_numpy(), GPFitted2['wavel'].to_numpy(), 
+                                           Y12, GPFitted1['var'].to_numpy(), GPFitted2['var'].to_numpy(), v)
         # step_count = opt.minimize(objFun, [v]).numpy()
         # result = v.numpy()
         result = minimize_scalar(objFun,method='brent',tol=1e-3)
@@ -301,10 +302,10 @@ class GPR():
         
         ### Following eq.11 in Zechmeister1,2017: error estimation under porabolic approximation
         if loglik_nearMax == True:
-            maxmum = result.x.item()
-            neglog_max = result.fun.item()
-            neglog_maxN = objFun(maxmum - deltaV).item()
-            neglog_maxP = objFun(maxmum + deltaV).item()
+            maxmum = result.x
+            neglog_max = result.fun
+            neglog_maxN = objFun(maxmum - deltaV)
+            neglog_maxP = objFun(maxmum + deltaV)
             uncertainty = 2*deltaV**2/(neglog_maxN - 2*neglog_max + neglog_maxP)
             return  maxmum,uncertainty
         else:
