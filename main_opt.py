@@ -86,7 +86,15 @@ if __name__ == '__main__':
     resultsName = 'output' + str(int(inputPara1/10)) + str(int(inputPara1%10)) + '_' + str(int(inputPara2/10)) +\
         str(int(inputPara2%10)) + '_' + str(int(RV1Value) - int(RV2Value)) + '.csv'
     dfResults.to_csv(pathresult / resultsName, index = False)
-    
+    ## check if result is surely written into disk
+    for trytime in range(5):
+        newList = os.listdir(pathresult)
+        if resultsName not in newList:
+            time.sleep(1)
+            dfResults.to_csv(pathresult / resultsName, index = False)
+        else:
+            break
+    print(resultsName + 'Extra trytimes: {}'.format(trytime))
     
     ## check if need to delete nSplit file
     lengthSpectra = len(GPFittedList)
