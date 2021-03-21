@@ -24,7 +24,7 @@ if __name__ == '__main__':
     optindex1 = []
     optindex2 = []
     for i in range(inputPara):
-        for j in range(i+1,inputPara):
+        for j in range(i,inputPara):
             optindex1.append(i)
             optindex2.append(j)
     pd.DataFrame({'index1':optindex1,'index2':optindex2}).to_csv('data_opt.csv',index=False)
