@@ -103,13 +103,8 @@ if __name__ == '__main__':
     # Final output
     RVout,Varout = RVAggAll(RVList)
     
-    
     # plot the results
-    spectrumPath = Path(os.getcwd()) / '..' /'spectrum'
-    spectrumList = os.listdir(spectrumPath)
-    RVTrue = np.empty(N)
-    for i in range(len(spectrumList)):
-        RVTrue[i] = int(spectrumList[i].split('.')[0].split('_')[-1])
+    RVTrue = pd.read_csv(pathbase/'RVTrue.txt')['RVTrue'].to_numpy()
     fig, ax = plt.subplots(figsize=(18,9))
     X = np.arange(N)
     meansubTrueRV = RVTrue-np.mean(RVTrue)

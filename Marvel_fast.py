@@ -84,6 +84,9 @@ class Spectrum():
                 ApplyGen(velocity, Vmag, exposureTime)
             else:
                 print('Spectra exist, No need to generate.')
+        
+        RVTrue = pd.DataFrame({'RVTrue':velocity})
+        RVTrue.to_csv(self.pathbase/'RVTrue.txt',index=False)
                 
     def orderToSuborder(self,spectrum,nSplit):
         pointsPerOrder = int(np.ceil(len(spectrum)/nSplit))
