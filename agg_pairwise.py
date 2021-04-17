@@ -12,6 +12,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from pathlib import Path
+import time
 
 def ExtendOutput(pathbase,csvList):
     for outFile in csvList:
@@ -43,6 +44,7 @@ def ReadAll(N,pathbase,csvList):
 def RVSuborder(resultList,suborderLen):
     RVList = []
     for idx1 in range(len(resultList)):
+        start = time.perf_counter()
         dfsubList = resultList[idx1]
         RVI = np.empty(suborderLen,dtype=float) # for all suborders
         VarI = np.empty(suborderLen,dtype=float)
@@ -61,6 +63,7 @@ def RVSuborder(resultList,suborderLen):
             VarI[suborderIdx] = vari
         dfRVI = pd.DataFrame({"RVI":RVI,"VarI":VarI})
         RVList.append(dfRVI)
+        print(time.perf_counter()-start)
     return RVList
 
 def RVAggAll(RVList):
@@ -75,12 +78,36 @@ def RVAggAll(RVList):
         Varout[i] = var
     return RVout,Varout
 
+## First compute all suborders, then pairwise
+def RVAggAll2(resultList):
+    RV  = np.empty(len(resultList),dtype=float)
+    Var = np.empty(len(resultList),dtype=float)
+    for i in range(len(resultList)):
+        subList = resultList[i]
+        RVtmp = np.empty(len(subList),dtype=float)
+        Vartmp = np.empty(len(subList),dtype=float)
+        for j in range(len(subList)):
+            dataFrame = subList[j]
+            weight = 1/dataFrame['var']
+            weightSum = sum(weight)
+            weightedRV = sum(dataFrame['RV']*weight/weightSum)
+            weightedVar = 1/weightSum
+            RVtmp[j] = weightedRV
+            Vartmp[j] = weightedVar
+        weight = 1/Vartmp
+        weightSum = sum(weight)
+        weightedRV = sum(weight*RVtmp/weightSum)
+        weightedVar = 1/weightSum
+        RV[i] = weightedRV
+        Var[i] = weightedVar
+    return RV,Var
 if __name__ == '__main__':
     #############parameters########
     fileExtend = False  # specify if need to extend output file (e.g. only optimize pairwise 1-0, not 0-1)
-    targetFolder = 'HPC_2021_03_21'
+    saveImg = False
+    targetFolder = 'HPC_2021_03_22'
     cutOffOrder = 43
-    N = 21
+    N = 41
     #############################
     pathbase = Path(os.getcwd()) / '..' /'results'/ targetFolder
     
@@ -103,6 +130,8 @@ if __name__ == '__main__':
     # Final output
     RVout,Varout = RVAggAll(RVList)
     
+    # RVout,Varout = RVAggAll2(resultAll)
+    
     # plot the results
     RVTrue = pd.read_csv(pathbase/'RVTrue.txt')['RVTrue'].to_numpy()
     fig, ax = plt.subplots(figsize=(18,9))
@@ -117,7 +146,6 @@ if __name__ == '__main__':
     ax.set_ylabel("Radial Velocity/ m/s (mean-substracted)")
     ax.grid(True, color='gainsboro', linestyle='-', linewidth=0.5)
     fig.legend()
-    fig.savefig(pathbase / 'graph' / "RVcomparison.png")
     
     fig1, ax1 = plt.subplots(figsize=(11,7))
     error = 1.96*np.sqrt(Varout)
@@ -128,4 +156,7 @@ if __name__ == '__main__':
     ax1.set_ylabel("Radial Velocity/ m/s (mean-substracted)")
     ax1.grid(True, color='gainsboro', linestyle='-', linewidth=0.5)
     fig1.legend()
-    fig1.savefig(pathbase / 'graph' / "RVcomparison1.png")
+    
+    if saveImg == True:
+        fig.savefig(pathbase / 'graph' / "RVcomparison.png")
+        fig1.savefig(pathbase / 'graph' / "RVcomparison1.png")
