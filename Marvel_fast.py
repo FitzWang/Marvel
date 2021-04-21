@@ -34,7 +34,7 @@ class Spectrum():
                 print(spectrumList)
             return True
         
-    def GenOneSpectrum(self, velocityShift, Vmag = 9., exposureTime = 900.):
+    def GenOneSpectrum(self, velocityShift,SNR = None, Vmag = 9., exposureTime = 900.):
         R, telescopeArea, effWavelSpectrograph, samplingResolution, throughputInterpolator, lambdaMin, lambdaMax = getSpectrograph("Marvel")
 
         # Choose the stellar parameters. Cf Data/ folder to see what choice there is.
@@ -49,45 +49,64 @@ class Spectrum():
         exposureTime = exposureTime## 25*60
         
         # Load and process the stellar spectrum
-        # This is for 1 telescope only. Use 4*telescopeArea instead of telescopeArea if the spectrum for 4 telescopes is needed.
         
-        spectrum = loadSpectrum2(Teff, logg, vmicro, FeH, vsini, R, effWavelSpectrograph, samplingResolution, velocityShift)
-        spectrum = electronFlux(spectrum, telescopeArea, throughputInterpolator, lambdaMin, lambdaMax, exposureTime, Vmag, 
-                                includePoissonNoise=True, normalizeSpectrum=True)
+        ## generate spetrum if you want a S/N ratio throughout the spectrum that is wavelength dependent
+        if SNR is None:
+            # This is for 1 telescope only. Use 4*telescopeArea instead of telescopeArea if the spectrum for 4 telescopes is needed.
+            spectrum = loadSpectrum2(Teff, logg, vmicro, FeH, vsini, R, effWavelSpectrograph, samplingResolution, velocityShift)
+            spectrum = electronFlux(spectrum, telescopeArea, throughputInterpolator, lambdaMin, lambdaMax, exposureTime, Vmag, 
+                                    includePoissonNoise=True, normalizeSpectrum=True)
+        else: 
+            R = 100000
+            spectrum = loadSpectrum2(Teff, logg, vmicro, FeH, vsini, R, effWavelSpectrograph, samplingResolution, velocityShift)
+            SNratio = SNR
+            spectrum= normalizedSpectrumxWithFixedSN(spectrum, lambdaMin, lambdaMax, SNratio)
+            print('Generating spectrum with constant SNR {}'.format(SNR))
         
         return spectrum
+        
     
     def GetOrderIndex(self, spectrum):
         # Split spectrum to orders via trough of original signal
         miniInd = signal.argrelextrema(spectrum['NelectronsCont'].ravel(), np.less, order = 10)
         # remove the first split threshold point, since first order only contains few points
         miniInd = miniInd[0].tolist()[1:]
+            
         return miniInd
     
-    def GenSpectrum(self,velocity, Vmag = 9., exposureTime = 900., overwrite=False):
-        def ApplyGen(velocity, Vmag, exposureTime):
+    def GenSpectrum(self,velocity, SNR = None, Vmag = 9., exposureTime = 900., overwrite=False):
+        def ApplyGen(velocity, SNR ,Vmag, exposureTime):
             assert len(velocity.shape) == 1, 'Please input one-dim list or array'
             for i in range(len(velocity)):
-                spectrum = self.GenOneSpectrum(velocity[i], Vmag, exposureTime)
-                filename = 'Spectrum' + str(int(i/10)) + str(int(i%10)) + '_' + str(int(velocity[i])) + '.csv'
+                spectrum = self.GenOneSpectrum(round(velocity[i],2), SNR, Vmag, exposureTime)
+                filename = 'Spectrum' + str(int(i/10)) + str(int(i%10)) + '_' + str(round(velocity[i],2)) + '.csv'
                 spectrum.to_csv(self.pathbase/'..'/'spectrum'/filename,index=False)
                 
         flag = self.CheckSpecExist(disp = False)
         if flag == False:
-            ApplyGen(velocity, Vmag, exposureTime)
+            ApplyGen(velocity, SNR, Vmag, exposureTime)
         else:
             if overwrite == True:
                 import shutil
                 print('Overwritting existing spectra!!!')
                 shutil.rmtree(self.pathbase/'..'/'spectrum')
                 os.makedirs(self.pathbase/'..'/'spectrum')
-                ApplyGen(velocity, Vmag, exposureTime)
+                ApplyGen(velocity,SNR ,Vmag, exposureTime)
             else:
                 print('Spectra exist, No need to generate.')
         
         RVTrue = pd.DataFrame({'RVTrue':velocity})
         RVTrue.to_csv(self.pathbase/'RVTrue.txt',index=False)
-                
+    
+    def CutGenedSpectrum(self, lowerWavl, upperWavl):
+        print('This will overwrite original spetrum files!!')
+        spectrumList = os.listdir(self.pathbase/'..'/'spectrum')
+        spectrumList = [item for item in spectrumList if item.startswith('Spectrum')]
+        for spectrum in spectrumList:
+            df = pd.read_csv(self.pathbase/'..'/'spectrum'/spectrum)
+            subSpec = df.loc[(df["wavel"] > lowerWavl) & (df["wavel"] < upperWavl)]
+            subSpec.to_csv(self.pathbase/'..'/'spectrum'/spectrum,index=False)
+    
     def orderToSuborder(self,spectrum,nSplit):
         pointsPerOrder = int(np.ceil(len(spectrum)/nSplit))
         suborder = []
@@ -98,8 +117,17 @@ class Spectrum():
         suborder.append(spectrum.iloc[pointsPerOrder*i:])
         return suborder
     
-    def spectrumToSuborder(self, spectrum, nPointSuborder):
-        miniInd = self.GetOrderIndex(spectrum)
+    def spectrumToSuborder(self, spectrum, nPointSuborder,uniform=False):
+        if uniform == False:
+            miniInd = self.GetOrderIndex(spectrum)
+        else:
+            # manually create uniform spilt, each order contains 3 suborders
+            intervel = nPointSuborder*3
+            splitPoint = intervel
+            miniInd = []
+            while(splitPoint<=len(spectrum)):
+                miniInd.append(splitPoint)
+                splitPoint+=intervel
         spectrumByOrders = np.split(spectrum, miniInd, axis=0)
         nSplit = [round(len(i)/nPointSuborder) for i in spectrumByOrders]
         assert len(spectrumByOrders) == len(nSplit)

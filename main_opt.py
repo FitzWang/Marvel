@@ -43,9 +43,9 @@ if __name__ == '__main__':
     GPFittedList.sort()
     
     GPFitted1 = pd.read_csv(spec.pathbase / '..' / 'GPFitted'/ GPFittedList[inputPara1])
-    RV1Value = GPFittedList[inputPara1].split('.')[0].split('_')[-1]   
+    RV1Value = '.'.join(GPFittedList[inputPara1].split('.')[0:-1]).split('_')[-1]   
     GPFitted2 = pd.read_csv(spec.pathbase / '..' / 'GPFitted'/ GPFittedList[inputPara2])
-    RV2Value = GPFittedList[inputPara2].split('.')[0].split('_')[-1]
+    RV2Value = '.'.join(GPFittedList[inputPara2].split('.')[0:-1]).split('_')[-1]
     length1 = len(GPFitted1)
     length2 = len(GPFitted2)
     index1 = GPFitted1.loc[GPFitted1['separation']==True].index.values
@@ -57,6 +57,7 @@ if __name__ == '__main__':
         
     # Create empty data array
     nSplit = pd.read_csv('nSplit.csv')['nSplit'].ravel()
+    nSplit[nSplit==0]=1
     noSuborders = len(index1)-1
     RunningTime = np.empty(noSuborders, dtype=float)
     RVout = np.empty(noSuborders, dtype=float)
@@ -84,7 +85,7 @@ if __name__ == '__main__':
         # print('RV:{},var:{}, time{}'.format(result[0],result[1],duration))
     dfResults = pd.DataFrame({'RunningTime':RunningTime,'RV':RVout,'var':var,'RVmean':RVMean,'Order':Order})
     resultsName = 'output' + str(int(inputPara1/10)) + str(int(inputPara1%10)) + '_' + str(int(inputPara2/10)) +\
-        str(int(inputPara2%10)) + '_' + str(int(RV1Value) - int(RV2Value)) + '.csv'
+        str(int(inputPara2%10)) + '_' + str(round(float(RV1Value) - float(RV2Value),2)) + '.csv'
     dfResults.to_csv(pathresult / resultsName, index = False)
     ## check if result is surely written into disk
     for trytime in range(5):

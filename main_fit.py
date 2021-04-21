@@ -41,7 +41,7 @@ if __name__ == '__main__':
             pass
     # GP fit
     spectrum = pd.read_csv(pathSpectrum / spectrumList[inputPara])
-    suborders,nSplit = spec.spectrumToSuborder(spectrum,nPointSuborder)
+    suborders,nSplit = spec.spectrumToSuborder(spectrum,nPointSuborder,True)
     GPFitted = gpr.PredOneGP(suborders)
     GPFitted.to_csv(spec.pathbase / '..' /'GPFitted' / spectrumList[inputPara],index = False)
     # save suborder split information

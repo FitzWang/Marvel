@@ -1,7 +1,6 @@
 # %% Imports
 
-import os 
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
+import os
 import numpy as np
 import pandas as pd
 import scipy as sp
@@ -86,7 +85,8 @@ def rebin(a, binSize, func):
 def convolve(wavel, linespec, contspec, newwavel, R):
     """
     Convolve the given spectrum (wavel, spec) with a gaussian with a stdev determined by resolving power R
-    and evaluate the result in the 'newwavel' points.
+    and evaluate the result in the 'newwavel' points. This function differs from the numpy convolve() function
+    as it allows non-equidistant wavelength points. It computes the convolution with a direct sum.
 
     INPUT:
         wavel:    wavelength points of the unconvolved spectrum, not necessarily equidistant, but assumed to be sorted
@@ -224,7 +224,9 @@ def loadSpectrum(Teff, logg, vmicro, FeH, vsini, R=None, lambdaEff=600., samplin
 
 
 
+
 # %% An alternative function to load a spectrum, convolve and rebin it
+#    It differs from loadspectrum() in the sense that it does not use any interpolation.
 
 def loadSpectrum2(Teff, logg, vmicro, FeH, vsini, R=None, lambdaEff=600., samplingResolution=3, velocityShift=0.0):
     """
@@ -377,10 +379,84 @@ def electronFlux(spectrum, telescopeArea, throughputInterpolator, lambdaMin, lam
     if normalizeSpectrum:
         result['NelectronsLine'] /= result['NelectronsCont']
 
+    return result
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# %% A function to compute a normalized spectrum with a fixed (wavelength-independent) S/N ratio
+
+def normalizedSpectrumxWithFixedSN(spectrum, lambdaMin, lambdaMax, SNratio):
+
+    """
+    INPUT:
+        spectrum:               Output of loadSpectrum()
+        lambdaMin:              Lower wavelength limit where the interpolator is applicable   [nm]
+        lambdaMax:              Higher wavelength limit where the interpolator is applicable  [nm]
+        SNratio:                S/N ratio of the spectrum (e.g. 200)
+    OUTPUT:
+        data:
+            ['wavel']          : Wavelength of the spectrum
+            ['NelectronsLine'] : Normalized line electron flux
+    """
+
+    # Make a deep copy of the spectrum so that the original dataframe is untouched
+
+    data = spectrum.copy(deep=True)
+
+    # Convert from energy flux to photon flux
+
+    deltaLambda = data['wavel'].diff()                                                                                     # [nm]
+    deltaLambda.iloc[0] = deltaLambda.iloc[1]               # Avoid NaN for 1st element because of backward difference
+    energyOnePhoton = H * C * 1e9 / data['wavel']                                                                          # [erg]
+    data['NelectronsLine'] = data['lineFlux'] / energyOnePhoton * deltaLambda 
+    data['NelectronsCont'] = data['contFlux'] / energyOnePhoton * deltaLambda
+
+    # Cut everything outside the interpolator's applicability range
+    # The deep copy is to avoid the "assignment to a copy" warning, when you afterwards want to add columns
+    # to the dataframe that we return
+
+    insideRange = (data['wavel'] > lambdaMin) & (data['wavel'] < lambdaMax)
+    result = data[insideRange].copy(deep=True)
+    result.reset_index(drop=True, inplace=True)
+
+    # If asked for include Poisson noise, include de noise in the line flux. Not in the continuum flux
+    # so that we can normalize the spectrum afterwards.
+
+    result['NelectronsLine'] = np.random.normal(result['NelectronsLine'].values, result['NelectronsLine'].values / SNratio)
+
+
+    # Normalize the spectrum.
+
+    result['NelectronsLine'] /= result['NelectronsCont']
 
     return result
+
+
+
+
+
+
+
+
+
+
+
 
 
 
