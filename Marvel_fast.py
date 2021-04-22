@@ -95,6 +95,7 @@ class Spectrum():
             else:
                 print('Spectra exist, No need to generate.')
         
+        velocity = [round(v,2) for v in velocity]
         RVTrue = pd.DataFrame({'RVTrue':velocity})
         RVTrue.to_csv(self.pathbase/'RVTrue.txt',index=False)
     
@@ -282,14 +283,16 @@ class GPR():
         K12 = self.kernel_Mat52(X12,X12)
         K12 += varMatrix
         # scipy package solution
+        ## NOTE: smalle value multiplied to I changed from 1e-10 to 1e-8, due to matrix not positive definite
+        ## problem encountered in 22nd April 2021.
         Y12  = Y12[:, np.newaxis]
-        L = scipy.linalg.cholesky(K12 + (1e-10*np.identity(2*length)),lower=True)
+        L = scipy.linalg.cholesky(K12 + (1e-6*np.identity(2*length)),lower=True)
         alpha = scipy.linalg.cho_solve((L,True),Y12)
         loglik = -0.5 * np.einsum("ik,ik->k", Y12, alpha)
         loglik -= np.log(np.diag(L)).sum()
         loglik -= length * np.log(2 * np.pi)     
         # # numpy package solution
-        # L = np.linalg.cholesky(K12 + (1e-10*np.identity(2*length)))
+        # L = np.linalg.cholesky(K12 + (1e-6*np.identity(2*length)))
         # alpha = np.linalg.solve(L.T,np.linalg.solve(L,Y12))        
         # loglik = -0.5*(Y12.T @ alpha) - np.log(L.diagonal()).sum() - length*np.log(2*np.pi)
         

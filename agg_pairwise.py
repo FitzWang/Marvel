@@ -17,15 +17,19 @@ import copy
 
 def ExtendOutput(pathbase,csvList):
     for outFile in csvList:
-        dataFrame = pd.read_csv(pathbase/outFile)
-        dataFrame['RV'] = dataFrame['RV'].mul(-1)
-        dataFrame['RVmean'] = dataFrame['RVmean'].mul(-1)
-        name = outFile.split('.')[0].split('_')
-        index1 = name[0].split('output')[1]
-        index2 = name[1]
-        relativeRV = str(-int(name[2]))
-        newFileName = 'output' + index2 + '_' +  index1 + '_' + relativeRV + '.csv'
-        dataFrame.to_csv(pathbase/newFileName,index = False)
+        filename = outFile.split('_')
+        idx1 = int(filename[0].split('output')[-1])
+        idx2 = int(filename[1])
+        if idx1 != idx2:
+            dataFrame = pd.read_csv(pathbase/outFile)
+            dataFrame['RV'] = dataFrame['RV'].mul(-1)
+            dataFrame['RVmean'] = dataFrame['RVmean'].mul(-1)
+            name = outFile.split('.')[0].split('_')
+            index1 = name[0].split('output')[1]
+            index2 = name[1]
+            relativeRV = str(-int(name[2]))
+            newFileName = 'output' + index2 + '_' +  index1 + '_' + relativeRV + '.csv'
+            dataFrame.to_csv(pathbase/newFileName,index = False)
         
 def ReadAll(N,pathbase,csvList):
     resultAll = []
@@ -180,9 +184,9 @@ if __name__ == '__main__':
     #############parameters########
     fileExtend = False  # specify if need to extend output file (e.g. only optimize pairwise 1-0, not 0-1)
     saveImg = False
-    targetFolder = 'HPC_2021_03_22'
+    targetFolder = 'HPC_2021_04_22_SNR200'
     cutOffOrder = 43
-    N = 41
+    N = 100
     ContaminationDet = False
     bottomK = 20
     #############################
@@ -206,10 +210,14 @@ if __name__ == '__main__':
     print('time:{}s'.format(time.perf_counter()-start))
     
     lenSuborder = len(resultAll[0][0])
-    start = time.perf_counter()
-    print('Saving New CSV files by suborders......')
-    pathDFByOrder = SaveDFbySuborder(pathbase,resultAll,lenSuborder)
-    print('time:{}s'.format(time.perf_counter()-start))
+    if ('bysuborder' in os.listdir(pathbase)):
+        if len(os.listdir(pathbase/'bysuborder')) == lenSuborder:
+            print('Suborder CSV files exist, no need to save')
+    else:
+        start = time.perf_counter()
+        print('Saving New CSV files by suborders......')
+        pathDFByOrder = SaveDFbySuborder(pathbase,resultAll,lenSuborder)
+        print('time:{}s'.format(time.perf_counter()-start))
     
     # Deal with suborders rv
     start = time.perf_counter()
