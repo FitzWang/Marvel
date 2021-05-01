@@ -146,6 +146,7 @@ def RVSuborder2(pathTarget,N):
         VaroneOrder = np.empty(N,dtype=float)
         for idx1 in range(N):
             dfsub = df[df['idx1']==idx1]
+            dfsub = dfsub[dfsub['idx2']<N]
             weight = (1/dfsub['var'])/(1/dfsub['var']).sum()
             weightedRV = (weight * dfsub['RV']).sum()
             weightedVar = 1/(1/dfsub['var']).sum()
@@ -182,9 +183,10 @@ def LeaveOneOutCorr(RVList,N,removeIdx):
     
 if __name__ == '__main__':
     #############parameters########
-    fileExtend = False  # specify if need to extend output file (e.g. only optimize pairwise 1-0, not 0-1)
+    fileExtend = True  # specify if need to extend output file (e.g. only optimize pairwise 1-0, not 0-1)
     saveImg = False
-    targetFolder = 'HPC_2021_04_22_SNR200'
+    ErrorByN = False
+    targetFolder = 'HPC_Test'
     cutOffOrder = 43
     N = 100
     ContaminationDet = False
@@ -196,24 +198,30 @@ if __name__ == '__main__':
     csvList = [ filename for filename in csvList if filename.endswith('.csv')]
     # extend the output file
     if fileExtend == True:
-        ExtendOutput(pathbase,csvList) 
-        if not os.path.exists(pathbase / 'graph'):  
-            os.makedirs(pathbase / 'graph')
-        csvList = os.listdir(pathbase)
-        csvList = [ filename for filename in csvList if filename.endswith('.csv')]
-        csvList.sort()
-        
-    # Read all files into one 2d array    
-    print('Reading all the raw output CSV files......')
-    start = time.perf_counter()
-    resultAll = ReadAll(N,pathbase,csvList)
-    print('time:{}s'.format(time.perf_counter()-start))
+        if len(csvList)>=N*N:
+            print('Extension of files have been already done!!')
+        else:
+            ExtendOutput(pathbase,csvList) 
+            if not os.path.exists(pathbase / 'graph'):  
+                os.makedirs(pathbase / 'graph')
+            csvList = os.listdir(pathbase)
+            csvList = [ filename for filename in csvList if filename.endswith('.csv')]
+            csvList.sort()
     
-    lenSuborder = len(resultAll[0][0])
+    lenSuborder = len(pd.read_csv(pathbase/csvList[0]))
+    
+    
     if ('bysuborder' in os.listdir(pathbase)):
         if len(os.listdir(pathbase/'bysuborder')) == lenSuborder:
             print('Suborder CSV files exist, no need to save')
+            pathDFByOrder = pathbase / 'bysuborder'
     else:
+        # Read all files into one 2d array    
+        print('Reading all the raw output CSV files......')
+        start = time.perf_counter()
+        resultAll = ReadAll(N,pathbase,csvList)
+        print('time:{}s'.format(time.perf_counter()-start))
+        # Saving New CSV files by suborders
         start = time.perf_counter()
         print('Saving New CSV files by suborders......')
         pathDFByOrder = SaveDFbySuborder(pathbase,resultAll,lenSuborder)
@@ -245,9 +253,39 @@ if __name__ == '__main__':
     # RVout,Varout = RVAggAll(RVList)
     
     # # RVout,Varout = RVAggAll2(resultAll)
+    RVTrue = pd.read_csv(pathbase/'RVTrue.txt')['RVTrue'].to_numpy()
+    
+    ### compute errors using subset of N RV estimation
+    ### e.g, with 100 spectrum, only use 5,10,20.... spectra to compute average errors.
+    if ErrorByN == True:
+        Nsubs = np.linspace(2,100,40,dtype=int)
+        MAEs = []
+        meanSigmas=[]
+        for Nsub in Nsubs:
+            start = time.perf_counter()
+            print('Computing RV estimation for all suborders......')
+            RVListbySuborder_Sub = RVSuborder2(pathDFByOrder,Nsub)
+            # Final output
+            RVoutSub,VaroutSub = RVAggAll3(RVListbySuborder_Sub,Nsub)
+            print('time:{}s'.format(time.perf_counter()-start))
+
+            RVTrueSub = RVTrue[0:Nsub]
+            meansubTrueRVSub = RVTrueSub-np.mean(RVTrueSub)
+            MAE = np.around(abs(RVoutSub-meansubTrueRVSub).mean(),decimals=2)
+            MAEs.append(MAE)
+            meanSigmas.append(np.sqrt(VaroutSub).mean())
+        pd.DataFrame({'sigma':meanSigmas,'MAE':MAEs}).to_csv(pathbase / 'graph' /'MAE_meansub.csv',index=False)
+        fig4, ax4 = plt.subplots(figsize=(11,7))
+        ax4.plot(Nsubs,MAEs,'o',label = "MAE")
+        ax4.set_xscale('log')
+        ax4.set_yscale('log')
+        ax4.set_xlabel("Number of Spectra Involved")
+        ax4.set_ylabel("MAE")
+        ax4.grid(True, color='gainsboro', linestyle='-', linewidth=0.5)
+        ax4.set_title('MAE versus N')
+        fig4.legend()
     
     # plot the results
-    RVTrue = pd.read_csv(pathbase/'RVTrue.txt')['RVTrue'].to_numpy()
     fig, ax = plt.subplots(figsize=(18,9))
     X = np.arange(N,dtype=int)
     meansubTrueRV = RVTrue-np.mean(RVTrue)
@@ -295,3 +333,5 @@ if __name__ == '__main__':
         fig3.savefig(pathbase /'graph'/'hist.png')
         if ContaminationDet:
             fig2.savefig(pathbase / 'graph' / "RVcomparison2.png")
+        if ErrorByN:
+            fig4.savefig(pathbase / 'graph' / "MAE_N.png")
