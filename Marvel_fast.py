@@ -201,13 +201,14 @@ class GPR():
         mCI = m.predict_quantiles(Xnew,quantiles=(2.5, 97.5))         
               
         fig0, ax0 = plt.subplots(figsize=(18,9))
-        ax0.plot(X, Y, "bo")
+        ax0.plot(X, Y, "bo",label='Observation')
         ax0.set_xlabel("Wavelength [nm]")
-        ax0.set_ylabel("Flux [e-/exposure]")
+        ax0.set_ylabel("Normalized flux")
         ax0.grid(True, color='gainsboro', linestyle='-', linewidth=0.5)
         # add posterior predictive mean curve
-        ax0.plot(Xnew,mMean ,c="red")
-        ax0.fill_between(Xnew.ravel(), mCI[0].ravel(), mCI[1].ravel() , alpha=0.3)
+        ax0.plot(Xnew,mMean ,c="red",label='Posterior mean')
+        ax0.fill_between(Xnew.ravel(), mCI[0].ravel(), mCI[1].ravel() , alpha=0.3,label='1.96σ error bar')
+        ax0.legend()
         plt.show()
         
     def PredOneGP(self, suborders, wavelInterval = 0.002):
@@ -270,6 +271,27 @@ class GPR():
         matrixUpper = np.concatenate((matrix1, matrix2),axis=1)
         matrixLower = np.concatenate((matrix3, matrix4),axis=1)
         return np.concatenate((matrixUpper, matrixLower)) 
+    
+    # Save L matrix from cholesky decomposition, using var estimation from first spectrum 
+    def SaveLmatrix(self,wavel1, Y12, var1, vs):
+        # startTime = time.clock()
+        length = len(wavel1)
+        Ls = []
+        for v in vs:
+            wavel2 = wavel1/np.sqrt((1 + v/self.c)/(1 - v/self.c))
+            X12 = np.concatenate((wavel2,wavel1))
+            
+            # varMatrix = np.diag(np.concatenate((np.ones(length)*var1,np.ones(length)*var2)))
+            varMatrix = np.diag(np.concatenate((var1,var1)))
+            K12 = self.kernel_Mat52(X12,X12)
+            K12 += varMatrix
+            # scipy package solution
+            ## NOTE: smalle value multiplied to I changed from 1e-10 to 1e-8, due to matrix not positive definite
+            ## problem encountered in 22nd April 2021.
+            Y12  = Y12[:, np.newaxis]
+            L = scipy.linalg.cholesky(K12 + (1e-6*np.identity(2*length)),lower=True)
+            Ls.append(L)
+        return np.array(Ls).astype(np.float32) # to minimize the storage requirements
     
     # Log likelihood with Cholosky decompostion    
     def logLik_Chol(self,wavel1, wavel2, Y12, var1, var2, v, evalGradiant = False):
@@ -343,5 +365,49 @@ class GPR():
             uncertainty = 2*deltaV**2/(neglog_maxN - 2*neglog_max + neglog_maxP)
             return  maxmum,uncertainty
         else:
-            return result.x.item()
+            return result.x
+    
+    def optimizeRVQA(self, GPFitted1, GPFitted2, loglik_nearMax = False):
+        len1 = len(GPFitted1)
+        len2 = len(GPFitted2)
+        if len1 != len2:
+            assert abs(len1-len2)<5
+            print("WARNING: Unequal suborder length, removing the difference")
+            if len1 > len2:
+                GPFitted1 = GPFitted1.iloc[:len2]
+            else:
+                GPFitted2 = GPFitted2.iloc[:len1]
+        Y12 = np.concatenate((GPFitted1['mean'].to_numpy(),GPFitted2['mean'].to_numpy()))
+        objFun = lambda v:self.logLik_Chol(GPFitted1['wavel'].to_numpy(), GPFitted2['wavel'].to_numpy(), 
+                                           Y12, GPFitted1['var'].to_numpy(), GPFitted2['var'].to_numpy(), v)
+        # Polyfit with order 2 of 3 points
+        Xt = np.array([-50,0,50])
+        Yt1 = objFun(Xt[0]);Yt2 = objFun(Xt[1]);Yt3 = objFun(Xt[2]);
+        Yt = np.array([Yt1,Yt2,Yt3])
+        coefs = np.polyfit(Xt, Yt, 2)
+        rv = -coefs[1]/(coefs[0]*2)
+        var = 1/coefs[0]
+        if loglik_nearMax==True:
+            return rv,var
+        else:
+            return rv
         
+    def optimizeRVQA_Lsaved(self, GPFitted1, GPFitted2, Ls, loglik_nearMax = False):
+        length = len(GPFitted1)
+        Y12 = np.concatenate((GPFitted1['mean'].to_numpy(),GPFitted2['mean'].to_numpy()))
+        Y12  = Y12[:, np.newaxis]
+        Yt = np.empty(3,dtype=np.float64)
+        for i, L in enumerate(Ls):
+            alpha = scipy.linalg.cho_solve((L,True),Y12)
+            loglik = -0.5 * np.einsum("ik,ik->k", Y12, alpha)
+            loglik -= np.log(np.diag(L)).sum()
+            loglik -= length * np.log(2 * np.pi)
+            Yt[i] = - loglik
+        Xt = np.array([-50,0,50])
+        coefs = np.polyfit(Xt, Yt, 2)
+        rv = -coefs[1]/(coefs[0]*2)
+        var = 1/coefs[0]
+        if loglik_nearMax==True:
+            return rv,var
+        else:
+            return rv

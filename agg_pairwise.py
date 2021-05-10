@@ -183,10 +183,10 @@ def LeaveOneOutCorr(RVList,N,removeIdx):
     
 if __name__ == '__main__':
     #############parameters########
-    fileExtend = True  # specify if need to extend output file (e.g. only optimize pairwise 1-0, not 0-1)
+    fileExtend = False  # specify if need to extend output file (e.g. only optimize pairwise 1-0, not 0-1)
     saveImg = False
     ErrorByN = False
-    targetFolder = 'HPC_Test'
+    targetFolder = 'HPC_2021_05_09_SNR200_QA'
     cutOffOrder = 43
     N = 100
     ContaminationDet = False
@@ -270,7 +270,7 @@ if __name__ == '__main__':
             print('time:{}s'.format(time.perf_counter()-start))
 
             RVTrueSub = RVTrue[0:Nsub]
-            meansubTrueRVSub = RVTrueSub-np.mean(RVTrueSub)
+            meansubTrueRVSub = RVTrueSub#-np.mean(RVTrueSub)
             MAE = np.around(abs(RVoutSub-meansubTrueRVSub).mean(),decimals=2)
             MAEs.append(MAE)
             meanSigmas.append(np.sqrt(VaroutSub).mean())
@@ -288,7 +288,7 @@ if __name__ == '__main__':
     # plot the results
     fig, ax = plt.subplots(figsize=(18,9))
     X = np.arange(N,dtype=int)
-    meansubTrueRV = RVTrue-np.mean(RVTrue)
+    meansubTrueRV = RVTrue#-np.mean(RVTrue)
     
     ax.plot(X,meansubTrueRV,'o',label = "True Radial Velocity (mean-substracted)")
     turerms1 = np.around(np.sqrt(((RVout-meansubTrueRV)**2).mean()),decimals=2)
